@@ -76,7 +76,7 @@ def load_summarize(file, api_key):
 
 # 2.0 INTERFACE DO STREAMLIT
 st.title("Busy Scientist App")
-st.subheader("Carregue um documento PDF:")
+st.subheader("Ler artigos científicos nunca foi tão fácil!")
 
 # Carregar chave da API e salvar no session_state
 api_key = load_api_key()

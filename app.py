@@ -1,12 +1,6 @@
 # Daniel C. P. Câmara
 # AI app designed to help busy researchers go through their crescent number of unread papers.
 
-# conda env create -f environment.yml
-
-# conda activate paper_app
-
-# streamlit run app.py
-
 # LIBRARIES AND SETUP
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_openai import ChatOpenAI
@@ -18,24 +12,32 @@ from langchain.chains.summarize import load_summarize_chain
 import streamlit as st
 import os
 from tempfile import NamedTemporaryFile
-import yaml
 
-# Load API Key
-OPENAI_API_KEY = yaml.safe_load(open('credentials.yml'))['openai']
+# Função para carregar a chave da API e armazenar no session_state
+def load_api_key():
+    if "api_key" not in st.session_state:
+        api_key = st.text_input("Insira sua chave da API OpenAI", type="password")
+        if st.button("Salvar chave"):
+            if api_key:
+                st.session_state["api_key"] = api_key
+                st.success("Chave da API salva!")
+            else:
+                st.error("Por favor, insira uma chave válida.")
+    return st.session_state.get("api_key", None)
 
-# 1.0 LOAD AND SUMMARIZE FUNCTION
-def load_summarize(file):
+# 1.0 FUNÇÃO PARA CARREGAR E RESUMIR PDF
+def load_summarize(file, api_key):
     with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(file.getvalue())
         file_path = tmp.name
-    
+
     try:
         loader = PyPDFLoader(file_path)
         docs = loader.load()
         model = ChatOpenAI(
-            model="gpt-3.5-turbo", 
+            model="gpt-4o-mini", 
             temperature=0, 
-            api_key=OPENAI_API_KEY
+            api_key=api_key
         )
         
         prompt_template = """
@@ -66,24 +68,30 @@ def load_summarize(file):
         llm_chain = LLMChain(prompt=prompt, llm=model)
         stuff_chain = StuffDocumentsChain(llm_chain=llm_chain, document_variable_name="paper")
         response = stuff_chain.invoke(docs)
-        
+
     finally:
         os.remove(file_path)
-    
+
     return response["output_text"]
 
-# 2.0 STREAMLIT INTERFACE
+# 2.0 INTERFACE DO STREAMLIT
 st.title("Busy Scientist App")
-st.subheader("Upload a PDF document:")
+st.subheader("Carregue um documento PDF:")
 
-uploaded_file = st.file_uploader("Choose a file", type="pdf")
+# Carregar chave da API e salvar no session_state
+api_key = load_api_key()
 
-if uploaded_file is not None:
-    if st.button("Summarize paper"):
-        with st.spinner("Summarizing..."):
-            summary = load_summarize(uploaded_file)
-            st.subheader("Summarization results:")
-            st.markdown(summary)
-            
+# Se a chave for carregada, rodar o restante do app
+if api_key:
+    uploaded_file = st.file_uploader("Escolha um arquivo PDF", type="pdf")
+
+    if uploaded_file is not None:
+        if st.button("Resumir o artigo"):
+            with st.spinner("Resumindo..."):
+                summary = load_summarize(uploaded_file, api_key)
+                st.subheader("Resultados da Resumização:")
+                st.markdown(summary)
+    else:
+        st.write("Nenhum arquivo carregado. Por favor, carregue um arquivo PDF.")
 else:
-    st.write("No file uploaded. Please upload a PDF file.")
+    st.write("Por favor, insira sua chave da API para continuar.")
